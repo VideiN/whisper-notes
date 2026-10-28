@@ -141,9 +141,12 @@ jobs:
       bundle: ${{ steps.upload.outputs.bundle }}
       build: ${{ steps.upload.outputs.build }}
     steps:
+      # 스크립트와 엔타이틀먼트(WhisperNotes/WhisperNotes.entitlements)만 있으면 된다
       - uses: actions/checkout@v7
         with:
-          sparse-checkout: scripts
+          sparse-checkout: |
+            scripts
+            WhisperNotes
 
       - uses: actions/download-artifact@v7
         with:
@@ -159,7 +162,7 @@ jobs:
           ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
           ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
           ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
-        run: bash scripts/testflight.sh ipa/*.ipa
+        run: bash scripts/testflight.sh ipa/*.ipa WhisperNotes/WhisperNotes.entitlements
 
   # 올린 빌드가 App Store Connect에서 처리되어 TestFlight에 나오는지 확인한다 (보통 5~30분, 기다리기만 하므로 Linux).
   # 비밀값이 없어 올리지 않았으면(build가 빈 값) 돌지 않는다

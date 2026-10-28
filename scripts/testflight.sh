@@ -6,8 +6,8 @@
 # 환경 변수 (testflight 환경의 비밀값): APPLE_DIST_P12_BASE64, APPLE_DIST_P12_PASSWORD, APPLE_PROFILE_BASE64,
 # ASC_KEY_ID, ASC_ISSUER_ID, ASC_KEY_P8
 # 사용법: testflight.sh <가짜 서명 IPA> [앱의 .entitlements]
-#   지금(M0)은 엔타이틀먼트가 없어 IPA만 준다. 그러면 App ID와 팀만 넣어 서명한다.
-#   백그라운드 GPU·메모리 한도 엔타이틀먼트(PLAN.md §4)를 쓰게 되면 .entitlements를 둘째 인자로 주고 App ID에도 켠다
+#   CI는 WhisperNotes/WhisperNotes.entitlements(백그라운드 GPU, PLAN.md §4)를 둘째 인자로 준다. 거기 있는 키가 프로필에 없으면 멈춘다.
+#   둘째 인자가 없으면 App ID와 팀만 넣어 서명한다
 # 같은 빌드 번호(CFBundleVersion = 실행 번호)가 이미 App Store Connect에 있으면 다시 올리지 않는다.
 # 실패한 실행을 다시 돌릴 때를 위해서다 (같은 번호로는 다시 올릴 수 없다)
 # GITHUB_OUTPUT이 있으면 bundle(번들 ID)과 build(CFBundleVersion)를 남긴다 (처리 확인 작업이 쓴다)

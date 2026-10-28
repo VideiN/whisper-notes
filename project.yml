@@ -8,6 +8,12 @@ options:
   developmentLanguage: ko
   createIntermediateGroups: true
 
+packages:
+  # 전사 (PLAN.md §4). argmaxinc/WhisperKit 저장소의 패키지 이름이 argmax-oss-swift다. 버전을 고정한다 (Package.resolved는 저장소에 넣지 않는다)
+  WhisperKit:
+    url: https://github.com/argmaxinc/WhisperKit
+    exactVersion: 1.1.1
+
 settings:
   base:
     SWIFT_VERSION: "6.0"
@@ -25,6 +31,9 @@ targets:
     platform: iOS
     sources:
       - WhisperNotes
+    dependencies:
+      - package: WhisperKit
+        product: WhisperKit
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.videin.whispernotes
