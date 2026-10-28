@@ -1,0 +1,30 @@
+# macOS
+.DS_Store
+
+# Xcode
+xcuserdata/
+*.xcuserstate
+DerivedData/
+build/
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Swift Package Manager
+.build/
+
+# 서명·시크릿 — 레포 시크릿에만 저장 (PLAN.md §6)
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+# Whisper 모델 가중치 — 레포에 커밋하지 않음 (PLAN.md §6)
+*.mlmodelc/
+*.mlpackage/
+
+# 강의 녹음·전사본·CER 테스트 데이터 — 저작물 (PLAN.md §5)
+*.m4a
+*.wav
+*.caf
+testdata/
