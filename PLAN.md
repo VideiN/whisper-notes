@@ -146,17 +146,19 @@
 ## 6. 개발 환경 / CI·CD
 
 ### GitHub Actions (퍼블릭 레포, 표준 러너 무료)
-- 러너: `macos-26` (GitHub 호스팅, 2026-02 GA, Xcode 26).
-- 프로젝트: XcodeGen YAML → `xcodegen generate` → `xcodebuild`.
-- 서명: App Store Connect API 키 + `xcodebuild -allowProvisioningUpdates` 자동 서명. Mac 없이 인증서를 만들려면 클라우드 관리 인증서를 사용 → API 키에 필요한 권한(Admin 여부) 확인.
-- 빌드 번호: `CURRENT_PROJECT_VERSION`을 `github.run_number`로 자동 증가 (TestFlight는 같은 빌드 번호를 거부).
-- 배포: TestFlight 업로드 → iPad에 설치.
+FaceLink 저장소(같은 계정)에서 이미 동작하는 구성을 가져옴. 자세한 것은 `README.md`와 `.github/workflows/ios.yml`.
+- 러너: `macos-26` (GitHub 호스팅, Xcode 26).
+- 프로젝트: XcodeGen YAML → `xcodegen generate` → `xcodebuild` (`scripts/build.sh`). `.xcodeproj`는 저장소에 넣지 않음.
+- 빌드: 서명 없이 빌드(`CODE_SIGNING_ALLOWED=NO`)하고 가짜 서명 IPA를 아티팩트로 남김 (LiveContainer로도 설치 가능).
+- 서명·배포: `scripts/testflight.sh`가 그 IPA를 Apple Distribution 인증서(.p12)와 App Store 프로필로 다시 서명해 `altool`로 TestFlight에 올리고, `scripts/asc.py`(App Store Connect API)로 처리 완료를 기다림. 엔타이틀먼트를 쓰게 되면 `.entitlements`를 둘째 인자로 주고 App ID에도 켬.
+- 빌드 번호: CI 실행 번호로 버전 `0.1.<번호>`, `CFBundleVersion` = 실행 번호 (TestFlight는 같은 빌드 번호를 거부). 앱 화면에 `#<실행 번호> <브랜치> <커밋>` 표시.
+- 시뮬레이터: iPad 시뮬레이터에서 앱을 띄워 이 실행의 빌드가 뜨는지 확인.
 
 ### 퍼블릭 레포 보안 규칙
-- 서명 인증서·API 키는 레포 시크릿에만 저장.
+- 서명 비밀값(.p12, 프로필, API 키)은 GitHub `testflight` 환경에만 두고, 그 환경은 배포 브랜치(main)에서만 열림. 비밀값이 없으면 올리지 않고 넘어감.
+- 서명된 IPA는 아티팩트로 남기지 않음.
 - `pull_request_target` 사용 금지 (포크 PR에 시크릿·쓰기 권한 노출).
-- 서명·업로드 잡은 `main` 푸시 또는 태그에서만 실행.
-- GitHub Environment에 본인 승인 필수 설정.
+- 서명·업로드 잡은 `main` 푸시 또는 수동 실행에서만.
 - Whisper 모델 가중치는 레포에 커밋하지 않음 (LFS 대역폭 한도).
 
 ### (보류) Xcode Cloud
@@ -233,7 +235,6 @@ Note_<id>/
 - WhisperKit `ModelComputeOptions`로 GPU/ANE 모드를 지정하는 방법, 모드 전환 시 모델 재로드·첫 로딩(기기 최적화) 시간
 - Foundation Models PCC 모델의 서드파티 접근 가능 여부
 - `contextSize` / `tokenCount(for:)` 도입 버전 (현재 26.4로 기재)
-- 클라우드 관리 인증서 사용 시 App Store Connect API 키에 필요한 권한
 
 ---
 

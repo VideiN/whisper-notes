@@ -1,0 +1,183 @@
+name: iOS
+
+on:
+  push:
+    paths-ignore:
+      - '**.md'
+  pull_request:
+  workflow_dispatch:
+    inputs:
+      testflight:
+        description: TestFlight에 올리기 (이 브랜치를 testflight 환경이 허락해야 한다)
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  # 스크립트 시험과 iPad 시뮬레이터에서 앱 띄우기
+  simulator:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Xcode
+        run: xcodebuild -version
+
+      # 시뮬레이터의 첫 부팅은 몇 분 걸린다. 미리 걸어 두고 시험·빌드와 겹치게 한다
+      - name: Boot simulator
+        run: |
+          udid=$(xcrun simctl list devices available --json | python3 scripts/pick-simulator.py)
+          echo "SIM_UDID=$udid" >> "$GITHUB_ENV"
+          nohup xcrun simctl boot "$udid" > "$RUNNER_TEMP/simctl-boot.log" 2>&1 &
+
+      - name: Install XcodeGen
+        run: bash scripts/install-xcodegen.sh
+
+      - name: Test scripts
+        run: python3 -m unittest discover -s scripts -v
+
+      - name: Build
+        run: |
+          app=$(bash scripts/build.sh simulator)
+          echo "APP=$app" >> "$GITHUB_ENV"
+
+      # 앱을 띄워 로그에 이 실행의 빌드 줄이 나오는지 확인 (scripts/ci-run-simulator.sh)
+      - name: Run on simulator
+        run: |
+          cat "$RUNNER_TEMP/simctl-boot.log" || true
+          bash scripts/ci-run-simulator.sh "$SIM_UDID" "$APP" app-run
+
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: app-simulator-run
+          path: app-run
+          if-no-files-found: ignore
+
+  # 서명 없는(가짜 서명) IPA. testflight 잡이 다시 서명해 올리고, LiveContainer로도 설치할 수 있다
+  ipa:
+    runs-on: macos-26
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install XcodeGen
+        run: bash scripts/install-xcodegen.sh
+
+      - name: Build
+        run: |
+          app=$(bash scripts/build.sh device)
+          echo "APP=$app" >> "$GITHUB_ENV"
+
+      - name: Package IPA
+        run: |
+          # 번들 안에 dSYM이 있으면 LiveContainer가 설치하며 서명에 실패한다
+          if find "$APP" -name '*.dSYM' | grep -q .; then
+            echo "dSYM inside the app bundle:"; find "$APP" -name '*.dSYM'; exit 1
+          fi
+          # TestFlight에 올릴 때 필요한 것: 아이콘, 개인정보 매니페스트, Info.plist의 빌드 도구 정보(Xcode가 넣음)와 키들
+          for file in Assets.car PrivacyInfo.xcprivacy; do
+            test -e "$APP/$file" || { echo "::error::$file is not in the app bundle"; exit 1; }
+          done
+          # 아이패드 전용이라 아이콘 정보가 CFBundleIcons~ipad에 들어갈 수 있다
+          /usr/libexec/PlistBuddy -c "Print :CFBundleIcons~ipad:CFBundlePrimaryIcon" "$APP/Info.plist" > /dev/null 2>&1 ||
+            /usr/libexec/PlistBuddy -c "Print :CFBundleIcons:CFBundlePrimaryIcon" "$APP/Info.plist" > /dev/null 2>&1 ||
+            { echo "::error::Info.plist has no app icon (CFBundleIcons)"; exit 1; }
+          for key in DTXcode DTSDKName UIRequiredDeviceCapabilities ITSAppUsesNonExemptEncryption; do
+            /usr/libexec/PlistBuddy -c "Print :$key" "$APP/Info.plist" > /dev/null || { echo "::error::Info.plist has no $key"; exit 1; }
+          done
+          # 어느 실행의 빌드인지 TestFlight·LiveContainer 목록(버전 0.1.<실행 번호>)과 파일 이름에서 알아보게
+          version=$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$APP/Info.plist")
+          test "$version" = "0.1.$GITHUB_RUN_NUMBER"
+          branch=${GITHUB_HEAD_REF:-$GITHUB_REF_NAME}
+          ipa="WhisperNotes-$GITHUB_RUN_NUMBER-${branch//\//-}-${GITHUB_SHA::7}.ipa"
+
+          mkdir -p build/ipa/Payload dist
+          cp -R "$APP" build/ipa/Payload/
+          (cd build/ipa && zip -qry "../../dist/$ipa" Payload)
+          if [ -d "$APP.dSYM" ]; then cp -R "$APP.dSYM" dist/; fi
+          codesign -dv "$APP" 2>&1 | grep -E 'Identifier|Signature'
+          ls -la dist
+          {
+            echo "### 기기용 IPA: 빌드 #$GITHUB_RUN_NUMBER"
+            echo "- 브랜치 \`$branch\`, 커밋 \`${GITHUB_SHA::7}\`"
+            echo "- 아티팩트 \`whispernotes-ipa-$GITHUB_RUN_NUMBER\`, 파일 \`$ipa\`"
+            echo "- 목록에는 버전 \`$version\`, 앱 화면의 \"빌드\"에는 \`#$GITHUB_RUN_NUMBER $branch\`"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: whispernotes-ipa-${{ github.run_number }}
+          path: |
+            dist/*.ipa
+            dist/*.dSYM
+
+  # TestFlight: main에 푸시할 때와, 수동 실행에서 "TestFlight에 올리기"를 고를 때만. PR에서는 돌지 않는다.
+  # ipa 잡의 가짜 서명 IPA를 배포 인증서로 다시 서명해 App Store Connect에 올린다 (scripts/testflight.sh).
+  # 서명 비밀값은 testflight 환경에만 있고, 그 환경은 허락한 브랜치에서만 열린다. 비밀값이 하나도 없으면 올리지 않고 넘어간다.
+  # 서명된 IPA는 아티팩트로 남기지 않는다 (공개 저장소). 시뮬레이터 시험과 상관없이 기기용 빌드가 있으면 올린다
+  testflight:
+    name: TestFlight upload
+    needs: ipa
+    if: >-
+      !cancelled() && needs.ipa.result == 'success' &&
+      ((github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+       (github.event_name == 'workflow_dispatch' && inputs.testflight))
+    runs-on: macos-26
+    timeout-minutes: 30
+    environment: testflight
+    outputs:
+      bundle: ${{ steps.upload.outputs.bundle }}
+      build: ${{ steps.upload.outputs.build }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+
+      - uses: actions/download-artifact@v7
+        with:
+          name: whispernotes-ipa-${{ github.run_number }}
+          path: ipa
+
+      - name: Sign and upload
+        id: upload
+        env:
+          APPLE_DIST_P12_BASE64: ${{ secrets.APPLE_DIST_P12_BASE64 }}
+          APPLE_DIST_P12_PASSWORD: ${{ secrets.APPLE_DIST_P12_PASSWORD }}
+          APPLE_PROFILE_BASE64: ${{ secrets.APPLE_PROFILE_BASE64 }}
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: bash scripts/testflight.sh ipa/*.ipa
+
+  # 올린 빌드가 App Store Connect에서 처리되어 TestFlight에 나오는지 확인한다 (보통 5~30분, 기다리기만 하므로 Linux).
+  # 비밀값이 없어 올리지 않았으면(build가 빈 값) 돌지 않는다
+  testflight-check:
+    name: TestFlight processing
+    needs: testflight
+    if: ${{ !cancelled() && needs.testflight.result == 'success' && needs.testflight.outputs.build != '' }}
+    runs-on: ubuntu-latest
+    environment: testflight
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          sparse-checkout: scripts
+
+      - name: Wait for App Store Connect
+        env:
+          ASC_KEY_ID: ${{ secrets.ASC_KEY_ID }}
+          ASC_ISSUER_ID: ${{ secrets.ASC_ISSUER_ID }}
+          ASC_KEY_P8: ${{ secrets.ASC_KEY_P8 }}
+        run: python3 scripts/asc.py wait-build "${{ needs.testflight.outputs.bundle }}" "${{ needs.testflight.outputs.build }}" 45
