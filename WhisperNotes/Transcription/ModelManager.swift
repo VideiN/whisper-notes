@@ -12,7 +12,7 @@ final class ModelManager {
         case failed(String)
     }
 
-    enum ModelError: LocalizedError {
+    nonisolated enum ModelError: LocalizedError {
         case notDownloaded(WhisperModel)
 
         var errorDescription: String? {

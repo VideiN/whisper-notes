@@ -78,6 +78,7 @@
   - Turbo 전체 파일 전사와 large-v3의 차이가 작으면 Turbo 단일 모델로 가고, large-v3 다운로드(약 3GB)·memory entitlement를 뺌.
 - 참고 수치 (iPad Pro M2, 제작사 측정): large-v3는 10분 오디오에 약 380초 (90분 강의 ≈ 57분), Turbo는 약 71초 (90분 ≈ 11분).
 - 청크 단위로 진행 상태를 저장해 중단 후 재개 가능하게 설계 (가장 중요).
+  - 구현: 세그먼트를 이어 붙여 약 5분 블록으로 나누고(경계는 앞뒤 20초 중 가장 조용한 곳), 블록 안에서는 WhisperKit 기본 방식(앞 창의 마지막 타임스탬프부터 다음 창)으로 전사. 블록마다 `progress.json`에 저장.
 - 실행 경로:
   - 기본: 충전 중 포그라운드 유지 모드 (`isIdleTimerDisabled = true`, 진행률 화면 표시).
   - 보조: `BGContinuedProcessingTask`(iPadOS 26+).
@@ -133,10 +134,10 @@
 |---|---|---|
 | Whisper large-v3 | Apache-2.0 | 고지문·NOTICE 유지 |
 | Whisper large-v3 Turbo | MIT | 저작권 고지 |
-| WhisperKit | MIT | 저작권 고지 |
-| swift-transformers (WhisperKit 의존성) | Apache-2.0 | 고지문·NOTICE 유지 |
+| WhisperKit (패키지 이름 argmax-oss-swift, 1.1.1) | MIT | 저작권 고지 |
+| swift-transformers 일부 (WhisperKit 1.x가 `ArgmaxCore/External`에 고쳐서 포함) | Apache-2.0 | 고지문·NOTICE 유지 (WhisperKit의 `NOTICES` 파일) |
 
-- 고지 목록은 `Package.resolved` 기준으로 전이 의존성까지 포함해 생성.
+- 고지 목록은 `Package.resolved` 기준으로 전이 의존성까지 포함해 생성. WhisperKit 1.x는 swift-transformers를 의존성으로 받지 않고 코드를 포함하므로 `NOTICES`도 본다.
 - GPL 컴포넌트(빌드 옵션에 따른 FFmpeg 등) 배제 → 오디오 디코딩은 AVFoundation.
 - 퍼블릭 레포이므로 레포 자체 라이선스를 명시 (미명시 시 "모든 권리 보유").
 - 녹음 대상: 본인이 참여한 강의 녹음은 합법. 단 학교 학칙·교수 허락 여부를 확인. 강의 내용은 저작물이므로 녹음·전사본 공유·공개 금지 (개인 학습용만). CER 테스트용 녹음·기준 전사도 레포에 커밋하지 않음.
@@ -197,6 +198,7 @@ Note_<id>/
 └── meta.json                   # 노트 제목, 생성일 등
 ```
 
+- 지금(M1 전): 노트가 없으므로 세션을 `Documents/sessions/<session_id>/`에 둔다 (id는 만든 시각, 예: `20261029-153012`). M1에서 노트를 만들면 노트 아래로 옮긴다.
 - 시간축: Whisper 타임스탬프는 세션 오디오 시간축(세그먼트를 이어붙인 기준). `manifest.json`으로 벽시계 시각과 변환. 필기(`creationDate`)·페이지 전환은 벽시계 시각이므로 manifest를 거쳐 오디오 위치와 연결됨.
 - iCloud 동기화는 MVP 범위 밖.
 - 모델 파일은 노트와 분리해 `Application Support`에 두고 `isExcludedFromBackup` 설정. `Caches`는 시스템이 지울 수 있어 수 GB를 다시 받게 될 수 있음.
@@ -213,6 +215,7 @@ Note_<id>/
 | M3 | 준실시간 전사 | 필기 중 VAD 청크(최대 30초) Turbo 전사 패널 표시 |
 | M4 | 요약 | 90분 강의 전사본 재귀 요약 생성 (4096토큰 예산 초과 없음) |
 
+- 진행 순서 (2026-10-29 사용자 결정): M0 다음에 필기(M1)를 미루고 녹음·전사(MVP 2·3번 = M2·M3)를 먼저 만든다. 필기 화면이 없는 동안 전사는 강의 화면 전체에 보여 주고, 필기와 동시 실행하는 시험(M2 완료 기준 마지막 항목)은 M1 뒤에 한다.
 - M2를 M3보다 먼저 하는 이유: 파일 단위 전사가 가장 단순한 경로라 모델 다운로드·로딩·메모리·한국어 품질을 실시간 복잡도 없이 먼저 검증. 필기 + 전사 동시 실행은 앱 컨셉의 핵심 리스크라 M3 전에 파일 전사로 미리 확인.
 
 ---
@@ -232,7 +235,8 @@ Note_<id>/
 | 요약 품질 (한국어, 재귀 요약) | 구간 길이별 결과 비교 |
 
 ### 구현 시 문서·코드로 확인할 것
-- WhisperKit `ModelComputeOptions`로 GPU/ANE 모드를 지정하는 방법, 모드 전환 시 모델 재로드·첫 로딩(기기 최적화) 시간
+- WhisperKit `ModelComputeOptions`로 GPU/ANE 모드를 지정하는 방법 → 확인함 (1.1.1: `melCompute`·`audioEncoderCompute`·`textDecoderCompute` 세 가지, 시뮬레이터에서는 모두 CPU로 강제). 모드 전환 시 모델 재로드·첫 로딩(기기 최적화) 시간은 실기기에서 잴 것 (앱 기록에 `model: loaded ... in Ns`)
+- 모델 이름 (whisperkit-coreml): Turbo `openai_whisper-large-v3-v20240930`, 양자화 Turbo `..._626MB`, large-v3 `openai_whisper-large-v3`. 이름에 `_turbo`가 붙은 것은 OpenAI Turbo보다 먼저 나온 Argmax 자체 변형이라 쓰지 않음
 - Foundation Models PCC 모델의 서드파티 접근 가능 여부
 - `contextSize` / `tokenCount(for:)` 도입 버전 (현재 26.4로 기재)
 

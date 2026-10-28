@@ -3,7 +3,10 @@
 강의 중 아이패드에서 PDF 강의자료에 필기하면서 녹음을 준실시간으로 전사하고, 강의가 끝나면 고정확도 재전사와 요약을 만드는 앱. 전사(WhisperKit)와 요약(Foundation Models)은 기기 안에서 한다.
 
 - 계획과 설계: [PLAN.md](PLAN.md)
-- 지금은 M0 단계다: 빈 앱을 CI에서 빌드해 TestFlight로 설치하는 데까지
+- 지금은 녹음과 전사(M2·M3)를 만들고 있다. 필기(M1)는 그 뒤에 한다
+  - 첫 화면의 "새 강의 녹음"으로 녹음하면서 준실시간 전사를 보고, 녹음을 끝낸 뒤 "완료 후 전사"로 전체를 다시 전사한다
+  - 전사 모델은 첫 화면의 "전사 모델"에서 받는다 (large-v3 Turbo 약 1.6GB)
+  - 녹음과 전사본은 Files 앱의 "나의 iPad > 위스퍼 필기 > sessions"에 있다
 
 ## 받기와 설치
 
@@ -18,7 +21,7 @@ Mac 없이 GitHub Actions에서 빌드한다. 설치는 두 가지다.
 
 `scripts/testflight.sh`가 가짜 서명 IPA를 받아, 프로필이 App Store용이고 이 앱의 App ID이며 그 인증서로 만든 것인지 확인한다. 그다음 이 실행만 쓰는 키체인으로 다시 서명해 `altool`로 올린다. 같은 빌드 번호가 이미 올라가 있으면(실패한 실행을 다시 돌릴 때) 다시 올리지 않는다. 다음 작업이 App Store Connect API(`scripts/asc.py`)로 처리 완료를 기다린다. 서명된 IPA는 아티팩트로 남기지 않는다.
 
-1. 개발자 사이트에 App ID(번들 ID `io.github.videin.whispernotes`, `project.yml`의 `PRODUCT_BUNDLE_IDENTIFIER`)를 등록하고, Apple Distribution 인증서로 App Store용 프로필을 만든다
+1. 개발자 사이트에 App ID(번들 ID `io.github.videin.whispernotes`, `project.yml`의 `PRODUCT_BUNDLE_IDENTIFIER`)를 등록하면서 **Background GPU Access** 기능을 켜고, Apple Distribution 인증서로 App Store용 프로필을 만든다. CI가 `WhisperNotes/WhisperNotes.entitlements`(백그라운드 GPU)를 넣어 서명하므로, 프로필에 그 기능이 없으면 업로드 전에 멈춘다
 2. App Store Connect에 그 번들 ID로 앱을 만들고, 내부 테스트 그룹에 자기 계정을 넣는다
 3. 저장소 Settings > Environments의 `testflight` 환경(배포 브랜치 main)에 비밀값을 넣는다. 하나도 없으면 올리지 않고 넘어간다
 
@@ -28,7 +31,9 @@ Mac 없이 GitHub Actions에서 빌드한다. 설치는 두 가지다.
 | `APPLE_PROFILE_BASE64` | App Store용 프로필(.mobileprovision, base64) |
 | `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` | App Store Connect API 키 (.p8 파일 내용) |
 
-엔타이틀먼트(백그라운드 GPU, 메모리 한도 등, PLAN.md §4)를 쓰게 되면 App ID에서 그 기능을 켜고 프로필을 다시 만든다.
+엔타이틀먼트를 더 쓰게 되면(메모리 한도 등, PLAN.md §4) `WhisperNotes/WhisperNotes.entitlements`에 넣고, App ID에서 그 기능을 켜고 프로필을 다시 만든다.
+
+LiveContainer로 설치한 앱은 다른 앱 안에서 돌기 때문에 완료 후 전사를 백그라운드 작업(BGContinuedProcessingTask)으로 내지 않고 앱 안에서만 돌린다. 화면을 켜 둔 채 기다려야 한다.
 
 ## 요구 사항
 
@@ -36,4 +41,4 @@ Mac 없이 GitHub Actions에서 빌드한다. 설치는 두 가지다.
 
 ## 라이선스
 
-[MIT](LICENSE). TestFlight 스크립트(`scripts/testflight.sh`, `scripts/asc.py`)는 같은 저작자가 FaceLink 저장소에서 쓴 것을 가져왔다.
+[MIT](LICENSE). TestFlight 스크립트(`scripts/testflight.sh`, `scripts/asc.py`)는 같은 저작자가 FaceLink 저장소에서 쓴 것을 가져왔다. 전사에는 [WhisperKit](https://github.com/argmaxinc/WhisperKit)(MIT, swift-transformers 일부 포함 Apache-2.0)과 OpenAI Whisper 모델을 쓴다 (PLAN.md §5).

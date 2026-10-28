@@ -73,7 +73,7 @@ final class RecordingController {
         }
     }
 
-    struct PermissionError: LocalizedError {
+    nonisolated struct PermissionError: LocalizedError {
         var errorDescription: String? { "마이크 권한이 없습니다. 설정 앱에서 위스퍼 필기의 마이크를 허용해 주세요." }
     }
 }

@@ -18,12 +18,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 구조
 
-- `WhisperNotes/`: 앱 (SwiftUI). 기본 격리가 `MainActor`다 (`SWIFT_DEFAULT_ACTOR_ISOLATION`). 메인 밖에서 도는 타입은 `nonisolated`를 붙인다
+- `WhisperNotes/`: 앱 (SwiftUI). 기본 격리가 `MainActor`다 (`SWIFT_DEFAULT_ACTOR_ISOLATION`). 메인 밖에서 도는 타입·데이터 형식은 `nonisolated`를 붙인다
+  - `Audio/`: 녹음 (`Recorder`: AVAudioEngine → 2분 m4a 조각 + manifest, 16kHz 조각 나누기 `SpeechChunker`)
+  - `Transcription/`: WhisperKit 감싸개 `WhisperEngine`(무거운 일은 `@concurrent`), 모델 받기·불러오기 `ModelManager`, 준실시간 `LiveTranscriber`, 완료 후 `FinalTranscriber`(BGContinuedProcessingTask)
+  - `Storage/`: 세션 파일 (`Documents/sessions/<id>/`, PLAN.md §7)
+- WhisperKit은 `project.yml`에서 버전을 고정한다 (지금 1.1.1). Xcode 26에서는 WhisperKit의 `Package@swift-6.2.swift`를 쓰는데, 거기서는 `nonisolated async` 함수가 부른 쪽 액터에서 돈다. 그래서 WhisperKit 호출은 `@concurrent` 함수 안에서만 한다 (메인에서 돌지 않게)
+- 녹음·전사는 시뮬레이터에서 시험할 수 없다 (마이크·모델 없음). 실기기에서 앱의 "기록"을 공유받아 본다 (`recorder:`, `live:`, `final:`, `model:` 줄)
 - 로그는 `log()`: 표준 출력과 앱의 "기록" 화면(최근 1,000줄, 공유 가능). CI가 `build: ` 줄을 찾으므로 그 문구를 바꾸면 `scripts/ci-run-simulator.sh`도 고친다
 - 빌드 정보: `scripts/build.sh`가 CI 실행 번호를 버전 `0.1.<번호>`와 빌드 설정 `WHISPERNOTES_BUILD_*`로 넘기고 → `WhisperNotes/Info.plist`의 `WhisperNotesBuild` → `BuildInfo.swift`
 
 ## 정해진 것
 
 - 번들 ID `io.github.videin.whispernotes`, 앱 이름 "위스퍼 필기", 아이패드 전용, 최소 iPadOS 26.4 (PLAN.md §1)
+- 순서: 녹음·전사(M2·M3)를 필기(M1)보다 먼저 만든다 (2026-10-29 사용자 결정)
+- 전사는 GPU 우선으로 시험하고 문제가 있으면 뉴럴 엔진으로 바꾼다 (설정에서 바꿈). 백그라운드 GPU는 완료 후 전사의 BGContinuedProcessingTask에서만 쓴다
 - 사용자와는 한국어로 소통하고, 앱 화면 문구도 한국어다. 문서·주석은 쉬운 한국어로 쓴다
 - 커밋: 한국어 제목 한 줄, 본문에 사용자 요청(인용)과 바뀐 점, 끝에 Co-Authored-By
