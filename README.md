@@ -21,7 +21,7 @@ Mac 없이 GitHub Actions에서 빌드한다. 설치는 두 가지다.
 
 `scripts/testflight.sh`가 가짜 서명 IPA를 받아, 프로필이 App Store용이고 이 앱의 App ID이며 그 인증서로 만든 것인지 확인한다. 그다음 이 실행만 쓰는 키체인으로 다시 서명해 `altool`로 올린다. 같은 빌드 번호가 이미 올라가 있으면(실패한 실행을 다시 돌릴 때) 다시 올리지 않는다. 다음 작업이 App Store Connect API(`scripts/asc.py`)로 처리 완료를 기다린다. 서명된 IPA는 아티팩트로 남기지 않는다.
 
-1. 개발자 사이트에 App ID(번들 ID `io.github.videin.whispernotes`, `project.yml`의 `PRODUCT_BUNDLE_IDENTIFIER`)를 등록하면서 **Background GPU Access** 기능을 켜고, Apple Distribution 인증서로 App Store용 프로필을 만든다. CI가 `WhisperNotes/WhisperNotes.entitlements`(백그라운드 GPU)를 넣어 서명하므로, 프로필에 그 기능이 없으면 업로드 전에 멈춘다
+1. 개발자 사이트에 App ID(번들 ID `io.github.videin.whispernotes`, `project.yml`의 `PRODUCT_BUNDLE_IDENTIFIER`)를 등록하면서 **Background GPU Access**와 **Increased Memory Limit** 기능을 켜고, Apple Distribution 인증서로 App Store용 프로필을 만든다. CI가 `WhisperNotes/WhisperNotes.entitlements`(백그라운드 GPU, 메모리 한도)를 넣어 서명하므로, 프로필에 그 기능이 없으면 업로드 전에 멈춘다
 2. App Store Connect에 그 번들 ID로 앱을 만들고, 내부 테스트 그룹에 자기 계정을 넣는다
 3. 저장소 Settings > Environments의 `testflight` 환경(배포 브랜치 main)에 비밀값을 넣는다. 하나도 없으면 올리지 않고 넘어간다
 
@@ -31,7 +31,7 @@ Mac 없이 GitHub Actions에서 빌드한다. 설치는 두 가지다.
 | `APPLE_PROFILE_BASE64` | App Store용 프로필(.mobileprovision, base64) |
 | `ASC_KEY_ID`, `ASC_ISSUER_ID`, `ASC_KEY_P8` | App Store Connect API 키 (.p8 파일 내용) |
 
-엔타이틀먼트를 더 쓰게 되면(메모리 한도 등, PLAN.md §4) `WhisperNotes/WhisperNotes.entitlements`에 넣고, App ID에서 그 기능을 켜고 프로필을 다시 만든다.
+엔타이틀먼트를 더 쓰게 되면(PLAN.md §4) `WhisperNotes/WhisperNotes.entitlements`에 넣고, App ID에서 그 기능을 켜고 프로필을 다시 만든다.
 
 LiveContainer로 설치한 앱은 다른 앱 안에서 돌기 때문에 완료 후 전사를 백그라운드 작업(BGContinuedProcessingTask)으로 내지 않고 앱 안에서만 돌린다. 화면을 켜 둔 채 기다려야 한다.
 

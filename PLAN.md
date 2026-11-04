@@ -75,7 +75,7 @@
 - 녹음 종료 후 세션의 세그먼트 전체를 순서대로 재전사 → 준실시간 결과를 통째로 교체.
 - 모델: M2의 CER 비교로 결정 (§9).
   - 품질 향상의 상당 부분은 모델 차이보다 30초 고정 청크 경계 제거와 이전 문맥 사용에서 나올 가능성이 있음 (Turbo는 large-v3와 인코더가 같고 디코더만 4층).
-  - Turbo 전체 파일 전사와 large-v3의 차이가 작으면 Turbo 단일 모델로 가고, large-v3 다운로드(약 3GB)·memory entitlement를 뺌.
+  - Turbo 전체 파일 전사와 large-v3의 차이가 작으면 Turbo 단일 모델로 가고, large-v3 다운로드(약 3GB)를 뺌. memory entitlement는 Turbo에서도 메모리가 모자라 이미 켰음 (§4).
 - 참고 수치 (iPad Pro M2, 제작사 측정): large-v3는 10분 오디오에 약 380초 (90분 강의 ≈ 57분), Turbo는 약 71초 (90분 ≈ 11분).
 - 청크 단위로 진행 상태를 저장해 중단 후 재개 가능하게 설계 (가장 중요).
   - 구현: 세그먼트를 이어 붙여 약 5분 블록으로 나누고(경계는 앞뒤 20초 중 가장 조용한 곳), 블록 안에서는 WhisperKit 기본 방식(앞 창의 마지막 타임스탬프부터 다음 창)으로 전사. 블록마다 `progress.json`에 저장.
@@ -121,7 +121,7 @@
 - 마이크 권한 (`NSMicrophoneUsageDescription`)
 - `UIFileSharingEnabled` + `LSSupportsOpeningDocumentsInPlace` (Files 앱에서 노트·로그·녹음 반출)
 - `ITSAppUsesNonExemptEncryption = NO` (TestFlight 빌드마다 수출 규정 질문이 뜨는 것 방지)
-- Increased Memory Limit (`com.apple.developer.kernel.increased-memory-limit`) — large-v3 채택 시에만
+- Increased Memory Limit (`com.apple.developer.kernel.increased-memory-limit`) — 완료 후 전사 중 메모리 부족이 잦아 켬 (2026-11-05). large-v3 채택과 상관없이 둔다
 - Background GPU access for continued processing (`com.apple.developer.background-tasks.continued-processing.gpu`) — 완료 후 전사(`BGContinuedProcessingTask`) 전용. 대상 iPad 지원은 다른 앱에서 확인됨. 준실시간 전사에는 적용되지 않음.
 
 ---

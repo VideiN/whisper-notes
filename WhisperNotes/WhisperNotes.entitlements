@@ -10,5 +10,8 @@
 	<!-- 완료 후 전사의 BGContinuedProcessingTask에서만 백그라운드 GPU를 쓴다 (준실시간 전사에는 해당 없음) -->
 	<key>com.apple.developer.background-tasks.continued-processing.gpu</key>
 	<true/>
+	<!-- 메모리 한도를 높인다. 완료 후 전사를 하다 메모리가 모자라 앱이 꺼지는 일이 잦아서 켰다 (2026-11-05) -->
+	<key>com.apple.developer.kernel.increased-memory-limit</key>
+	<true/>
 </dict>
 </plist>
