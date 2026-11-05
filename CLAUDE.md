@@ -31,6 +31,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 - 번들 ID `io.github.videin.whispernotes`, 앱 이름 "위스퍼 필기", 아이패드 전용, 최소 iPadOS 26.4 (PLAN.md §1)
 - 순서: 녹음·전사(M2·M3)를 필기(M1)보다 먼저 만든다 (2026-10-29 사용자 결정)
-- 전사는 GPU 우선으로 시험하고 문제가 있으면 뉴럴 엔진으로 바꾼다 (설정에서 바꿈). 백그라운드 GPU는 완료 후 전사의 BGContinuedProcessingTask에서만 쓴다
+- 계산 장치는 준실시간·완료 후 전사를 따로 정한다 (설정). 준실시간은 뉴럴 엔진이 기본이다 (녹음 중 백그라운드에서도 이어 가려고. iPadOS 27부터는 Background Inference 엔타이틀먼트가 필요하다). 완료 후는 GPU가 기본이다. 백그라운드 GPU는 완료 후 전사의 BGContinuedProcessingTask에서만 쓴다
+- 사용자 기기는 iPadOS 27.2. App ID에 백그라운드 GPU·Background Inference·메모리 한도를 켜 두었다
 - 사용자와는 한국어로 소통하고, 앱 화면 문구도 한국어다. 문서·주석은 쉬운 한국어로 쓴다
 - 커밋: 한국어 제목 한 줄, 본문에 사용자 요청(인용)과 바뀐 점, 끝에 Co-Authored-By

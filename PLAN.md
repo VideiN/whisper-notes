@@ -55,11 +55,14 @@
   - 동시에 16kHz mono로 변환(`AVAudioConverter`)해 전사 큐에 투입.
 - 청크 분할: 고정 30초는 단어 중간을 자르므로, 무음 지점에서 자르고 최대 30초로 제한 (WhisperKit `chunkingStrategy: .vad` 또는 자체 VAD). 청크 내 세그먼트 타임스탬프에는 청크 시작 오프셋을 더해 저장.
 - 모델: Whisper large-v3 Turbo (WhisperKit, CoreML).
-- Compute 설정: **GPU 우선으로 시작**하고, 발열이나 사용 지장(Pencil 지연·프레임 드롭)이 있으면 Neural Engine으로 전환.
+- Compute 설정: 준실시간 전사와 완료 후 전사를 따로 정함. **준실시간은 Neural Engine이 기본**(백그라운드에서도 이어 가려고, 아래 백그라운드 제약), **완료 후는 GPU가 기본**. 발열이나 사용 지장(Pencil 지연·프레임 드롭)을 보고 바꿈 (2026-11-05 변경. 그 전에는 둘 다 GPU 우선).
   - GPU 모드: mel·encoder·decoder `.cpuAndGPU`. ANE 모드: mel `.cpuOnly`, encoder·decoder `.cpuAndNeuralEngine`.
   - Compute 모드는 디버그 메뉴의 런타임 설정으로 둠. CoreML은 로드 시점에 compute units가 정해지므로 전환하면 모델을 다시 로드함. Mac 없이 TestFlight를 거치면 빌드 한 번이 느리므로, 재빌드 없이 앱 안에서 바꿔 가며 비교.
   - GPU 모드는 Pencil 렌더링과 GPU를 나눠 쓰게 되므로 이 부분이 판정의 핵심 (§9).
-  - 백그라운드 제약: 녹음 중 화면 잠금·앱 전환 시 audio 백그라운드 모드로 앱은 계속 돌지만 GPU 작업은 허용되지 않음. 백그라운드 GPU 권한은 `BGContinuedProcessingTask` 안에서만 적용되므로 준실시간 전사에는 쓰지 않음 (완료 후 전사 전용, §3.3). GPU 모드에서는 백그라운드 진입 시 준실시간 전사를 멈추고 청크만 쌓아 두었다가 포그라운드 복귀 시 이어서 처리 (완료 후 전사가 전체를 다시 덮으므로 밀린 청크는 건너뛰어도 됨).
+  - 백그라운드 제약: 녹음 중 화면 잠금·앱 전환 시 audio 백그라운드 모드로 앱은 계속 돌지만 GPU 작업은 허용되지 않음. 백그라운드 GPU 권한은 `BGContinuedProcessingTask` 안에서만 적용되므로 준실시간 전사에는 쓰지 않음 (완료 후 전사 전용, §3.3).
+  - Neural Engine은 백그라운드에서도 쓸 수 있음. 단 iPadOS 27부터는 Background Inference 엔타이틀먼트(`com.apple.developer.background-tasks.continued-processing.inference`)가 있어야 하고, 이것은 `BGContinuedProcessingTask` 밖에서도 적용됨 (Apple 문서: "required for any Neural Engine access while your app is in the background"). 사용자 기기는 iPadOS 27.2. 그래서 준실시간 전사의 기본을 Neural Engine으로 바꿈.
+  - GPU 모드로 둔 경우: 백그라운드 진입 시 하던 청크를 취소하고 멈춤. 청크는 최근 4개만 남겼다가 포그라운드 복귀 시 이어서 처리 (완료 후 전사가 전체를 다시 덮으므로 밀린 청크는 건너뛰어도 됨).
+  - 밀린 청크는 메모리에 있으므로 최대 20개(약 10분)로 제한. 백그라운드에서 전사가 느려져 녹음을 못 따라가면 오래된 것부터 건너뜀.
 - 설정: 언어 `ko` 고정(자동 감지 끄기), 무음 청크 건너뛰기(VAD).
 - 환각 대응: 한국어는 무음·소음 구간에서 "시청해주셔서 감사합니다"류 환각이 잘 알려져 있고, 에너지 VAD는 강의실 소음(프로젝터·공조)에 약함 → `noSpeechThreshold` / `logProbThreshold` / `compressionRatioThreshold` 설정 + 알려진 환각 문구 블랙리스트 후처리.
 - 지연: 청크 길이 + 처리 시간 ≈ 30~60초. "가끔 확인하며 따라잡기" 용도로 허용 범위.
@@ -123,6 +126,7 @@
 - `ITSAppUsesNonExemptEncryption = NO` (TestFlight 빌드마다 수출 규정 질문이 뜨는 것 방지)
 - Increased Memory Limit (`com.apple.developer.kernel.increased-memory-limit`) — 완료 후 전사 중 메모리 부족이 잦아 켬 (2026-11-05). large-v3 채택과 상관없이 둔다
 - Background GPU access for continued processing (`com.apple.developer.background-tasks.continued-processing.gpu`) — 완료 후 전사(`BGContinuedProcessingTask`) 전용. 대상 iPad 지원은 다른 앱에서 확인됨. 준실시간 전사에는 적용되지 않음.
+- Background Inference (`com.apple.developer.background-tasks.continued-processing.inference`, iPadOS 27+) — 백그라운드에서 Neural Engine을 쓰는 모든 경우에 필요 (준실시간 전사, 완료 후 전사의 Neural Engine 경로). App ID에서 켬 (2026-11-05)
 
 ---
 

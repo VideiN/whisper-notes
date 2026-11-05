@@ -156,7 +156,7 @@ private struct FinalBar: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(!app.isIdle)
                     Spacer()
-                    Text("\(AppSettings.finalModel.title) · \(AppSettings.computeMode.title)")
+                    Text("\(AppSettings.finalModel.title) · \(AppSettings.finalComputeMode.title)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }

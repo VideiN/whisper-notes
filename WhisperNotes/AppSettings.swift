@@ -24,7 +24,9 @@ nonisolated enum AudioMode: String, CaseIterable, Sendable {
 /// 앱 설정. 화면에서는 같은 키로 @AppStorage를 쓴다
 nonisolated enum AppSettings {
     enum Key {
-        static let computeMode = "computeMode"
+        /// 완료 후 전사의 계산 장치. 예전에 두 전사가 같이 쓰던 키를 그대로 쓴다 (이미 고른 값을 살리려고)
+        static let finalComputeMode = "computeMode"
+        static let liveComputeMode = "liveComputeMode"
         static let finalModel = "finalModel"
         static let liveEnabled = "liveEnabled"
         static let audioMode = "audioMode"
@@ -33,8 +35,15 @@ nonisolated enum AppSettings {
     /// 준실시간 전사 모델은 Turbo로 정했다 (PLAN.md §2)
     static let liveModel = WhisperModel.turbo
 
-    static var computeMode: ComputeMode {
-        UserDefaults.standard.string(forKey: Key.computeMode).flatMap(ComputeMode.init) ?? .gpu
+    /// 준실시간 전사는 뉴럴 엔진이 기본이다. 녹음 중 백그라운드에서도 이어 갈 수 있는 것은 뉴럴 엔진뿐이기 때문이다
+    /// (iPadOS 27부터는 Background Inference 엔타이틀먼트가 있어야 한다, PLAN.md §3.2)
+    static var liveComputeMode: ComputeMode {
+        UserDefaults.standard.string(forKey: Key.liveComputeMode).flatMap(ComputeMode.init) ?? .neuralEngine
+    }
+
+    /// 완료 후 전사는 GPU가 기본이다 (백그라운드에서는 BGContinuedProcessingTask의 백그라운드 GPU, PLAN.md §3.3)
+    static var finalComputeMode: ComputeMode {
+        UserDefaults.standard.string(forKey: Key.finalComputeMode).flatMap(ComputeMode.init) ?? .gpu
     }
 
     static var finalModel: WhisperModel {

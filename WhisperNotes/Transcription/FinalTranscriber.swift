@@ -50,7 +50,7 @@ final class FinalTranscriber {
     func start(_ session: SessionFiles) {
         guard job == nil else { return }
         let model = AppSettings.finalModel
-        let compute = AppSettings.computeMode
+        let compute = AppSettings.finalComputeMode
         guard models.downloaded.contains(model) else {
             lastError = ModelManager.ModelError.notDownloaded(model).localizedDescription
             return

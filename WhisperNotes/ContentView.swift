@@ -152,14 +152,20 @@ private struct ModelRow: View {
 }
 
 private struct SettingsSection: View {
-    @AppStorage(AppSettings.Key.computeMode) private var computeMode = ComputeMode.gpu
+    @AppStorage(AppSettings.Key.liveComputeMode) private var liveComputeMode = ComputeMode.neuralEngine
+    @AppStorage(AppSettings.Key.finalComputeMode) private var finalComputeMode = ComputeMode.gpu
     @AppStorage(AppSettings.Key.finalModel) private var finalModel = WhisperModel.turbo
     @AppStorage(AppSettings.Key.liveEnabled) private var liveEnabled = true
     @AppStorage(AppSettings.Key.audioMode) private var audioMode = AudioMode.standard
 
     var body: some View {
         Section {
-            Picker("계산 장치", selection: $computeMode) {
+            Picker("준실시간 전사 계산 장치", selection: $liveComputeMode) {
+                ForEach(ComputeMode.allCases, id: \.self) { mode in
+                    Text(mode.title)
+                }
+            }
+            Picker("완료 후 전사 계산 장치", selection: $finalComputeMode) {
                 ForEach(ComputeMode.allCases, id: \.self) { mode in
                     Text(mode.title)
                 }
@@ -178,7 +184,7 @@ private struct SettingsSection: View {
         } header: {
             Text("전사 설정")
         } footer: {
-            Text("GPU로 먼저 시험하고, 기기가 뜨거워지거나 필기가 늦어지면 뉴럴 엔진으로 바꿉니다. 바꾸면 다음 녹음·전사부터 모델을 다시 불러옵니다.")
+            Text("준실시간 전사를 GPU로 하면 앱을 나가 있는 동안은 멈추고, 밀린 앞부분은 건너뜁니다 (완료 후 전사가 다시 채웁니다). 뉴럴 엔진은 앱을 나가도 이어 갑니다. 바꾸면 다음 녹음·전사부터 모델을 다시 불러옵니다.")
         }
     }
 }
