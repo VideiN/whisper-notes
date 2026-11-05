@@ -101,7 +101,7 @@ private struct ModelSection: View {
         } header: {
             Text("전사 모델")
         } footer: {
-            Text("처음 한 번 받아 기기에 둡니다 (Wi-Fi 권장). 준실시간 전사는 large-v3 Turbo를 씁니다. 처음 불러올 때는 기기에 맞게 최적화하느라 몇 분 걸릴 수 있습니다.")
+            Text("처음 한 번 받아 기기에 둡니다 (Wi-Fi 권장). 처음 불러올 때는 기기에 맞게 최적화하느라 몇 분 걸릴 수 있습니다.")
         }
     }
 }
@@ -151,40 +151,37 @@ private struct ModelRow: View {
     }
 }
 
+/// 녹음과 준실시간 전사 설정. 완료 후 전사 설정은 강의 화면에 있다 (FinalBar)
 private struct SettingsSection: View {
-    @AppStorage(AppSettings.Key.liveComputeMode) private var liveComputeMode = ComputeMode.neuralEngine
-    @AppStorage(AppSettings.Key.finalComputeMode) private var finalComputeMode = ComputeMode.gpu
-    @AppStorage(AppSettings.Key.finalModel) private var finalModel = WhisperModel.turbo
     @AppStorage(AppSettings.Key.liveEnabled) private var liveEnabled = true
+    @AppStorage(AppSettings.Key.liveModel) private var liveModel = WhisperModel.turbo
+    @AppStorage(AppSettings.Key.liveComputeMode) private var liveComputeMode = ComputeMode.neuralEngine
     @AppStorage(AppSettings.Key.audioMode) private var audioMode = AudioMode.standard
 
     var body: some View {
         Section {
-            Picker("준실시간 전사 계산 장치", selection: $liveComputeMode) {
-                ForEach(ComputeMode.allCases, id: \.self) { mode in
-                    Text(mode.title)
-                }
-            }
-            Picker("완료 후 전사 계산 장치", selection: $finalComputeMode) {
-                ForEach(ComputeMode.allCases, id: \.self) { mode in
-                    Text(mode.title)
-                }
-            }
-            Picker("완료 후 전사 모델", selection: $finalModel) {
+            Toggle("녹음하면서 전사", isOn: $liveEnabled)
+            Picker("모델", selection: $liveModel) {
                 ForEach(WhisperModel.allCases, id: \.self) { model in
                     Text(model.title)
                 }
             }
-            Toggle("녹음하면서 전사 (준실시간)", isOn: $liveEnabled)
+            .disabled(!liveEnabled)
+            Picker("계산 장치", selection: $liveComputeMode) {
+                ForEach(ComputeMode.allCases, id: \.self) { mode in
+                    Text(mode.title)
+                }
+            }
+            .disabled(!liveEnabled)
             Picker("마이크 모드", selection: $audioMode) {
                 ForEach(AudioMode.allCases, id: \.self) { mode in
                     Text(mode.title)
                 }
             }
         } header: {
-            Text("전사 설정")
+            Text("녹음·준실시간 전사")
         } footer: {
-            Text("준실시간 전사를 GPU로 하면 앱을 나가 있는 동안은 멈추고, 밀린 앞부분은 건너뜁니다 (완료 후 전사가 다시 채웁니다). 뉴럴 엔진은 앱을 나가도 이어 갑니다. 바꾸면 다음 녹음·전사부터 모델을 다시 불러옵니다.")
+            Text("GPU로 하면 앱을 나가 있는 동안은 멈추고, 밀린 앞부분은 건너뜁니다 (완료 후 전사가 다시 채웁니다). 뉴럴 엔진은 앱을 나가도 이어 갑니다. 바꾸면 다음 녹음부터 적용됩니다. 완료 후 전사 설정은 강의 화면에 있습니다.")
         }
     }
 }

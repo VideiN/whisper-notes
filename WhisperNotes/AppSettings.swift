@@ -27,13 +27,16 @@ nonisolated enum AppSettings {
         /// 완료 후 전사의 계산 장치. 예전에 두 전사가 같이 쓰던 키를 그대로 쓴다 (이미 고른 값을 살리려고)
         static let finalComputeMode = "computeMode"
         static let liveComputeMode = "liveComputeMode"
+        static let liveModel = "liveModel"
         static let finalModel = "finalModel"
         static let liveEnabled = "liveEnabled"
         static let audioMode = "audioMode"
     }
 
-    /// 준실시간 전사 모델은 Turbo로 정했다 (PLAN.md §2)
-    static let liveModel = WhisperModel.turbo
+    /// 준실시간 전사 모델. 기본은 Turbo (PLAN.md §2). 양자화 모델과 비교하려고 고를 수 있게 했다 (메인 화면)
+    static var liveModel: WhisperModel {
+        UserDefaults.standard.string(forKey: Key.liveModel).flatMap(WhisperModel.init) ?? .turbo
+    }
 
     /// 준실시간 전사는 뉴럴 엔진이 기본이다. 녹음 중 백그라운드에서도 이어 갈 수 있는 것은 뉴럴 엔진뿐이기 때문이다
     /// (iPadOS 27부터는 Background Inference 엔타이틀먼트가 있어야 한다, PLAN.md §3.2)

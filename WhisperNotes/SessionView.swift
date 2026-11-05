@@ -115,8 +115,11 @@ private struct RecordingBar: View {
     }
 }
 
+/// 완료 후 전사: 진행 상태, 또는 시작 버튼과 설정(모델·계산 장치). 설정은 강의마다가 아니라 마지막으로 고른 것을 기억한다
 private struct FinalBar: View {
     @Environment(AppModel.self) private var app
+    @AppStorage(AppSettings.Key.finalModel) private var finalModel = WhisperModel.turbo
+    @AppStorage(AppSettings.Key.finalComputeMode) private var finalComputeMode = ComputeMode.gpu
     let session: SessionFiles
     let hasFinal: Bool
 
@@ -156,10 +159,18 @@ private struct FinalBar: View {
                     .buttonStyle(.borderedProminent)
                     .disabled(!app.isIdle)
                     Spacer()
-                    Text("\(AppSettings.finalModel.title) · \(AppSettings.finalComputeMode.title)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                    Picker("모델", selection: $finalModel) {
+                        ForEach(WhisperModel.allCases, id: \.self) { model in
+                            Text(app.models.downloaded.contains(model) ? model.title : "\(model.title) (안 받음)")
+                        }
+                    }
+                    Picker("계산 장치", selection: $finalComputeMode) {
+                        ForEach(ComputeMode.allCases, id: \.self) { mode in
+                            Text(mode.title)
+                        }
+                    }
                 }
+                .pickerStyle(.menu)
                 Text("충전기에 꽂고 화면을 켜 둔 채로 두는 것이 가장 빠릅니다. 앱을 나가도 시스템이 허락하면 이어 갑니다.")
                     .font(.caption)
                     .foregroundStyle(.secondary)

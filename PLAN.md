@@ -54,7 +54,8 @@
   - 세그먼트마다 벽시계 시작·끝 시각을 `manifest.json`에 기록.
   - 동시에 16kHz mono로 변환(`AVAudioConverter`)해 전사 큐에 투입.
 - 청크 분할: 고정 30초는 단어 중간을 자르므로, 무음 지점에서 자르고 최대 30초로 제한 (WhisperKit `chunkingStrategy: .vad` 또는 자체 VAD). 청크 내 세그먼트 타임스탬프에는 청크 시작 오프셋을 더해 저장.
-- 모델: Whisper large-v3 Turbo (WhisperKit, CoreML).
+- 모델: Whisper large-v3 Turbo (WhisperKit, CoreML). Neural Engine에서 메모리·불러오기 시간을 줄이려고 Turbo 양자화(626MB)도 고를 수 있게 둠 (속도 이득은 작을 것으로 봄. 실기기에서 비교).
+- 설정 위치 (개발 중이라 단순하게): 준실시간 전사(켜기, 모델, 계산 장치)와 마이크 모드는 메인 화면, 완료 후 전사(모델, 계산 장치)는 강의 화면의 시작 버튼 옆. 둘 다 마지막으로 고른 값을 기억함.
 - Compute 설정: 준실시간 전사와 완료 후 전사를 따로 정함. **준실시간은 Neural Engine이 기본**(백그라운드에서도 이어 가려고, 아래 백그라운드 제약), **완료 후는 GPU가 기본**. 발열이나 사용 지장(Pencil 지연·프레임 드롭)을 보고 바꿈 (2026-11-05 변경. 그 전에는 둘 다 GPU 우선).
   - GPU 모드: mel·encoder·decoder `.cpuAndGPU`. ANE 모드: mel `.cpuOnly`, encoder·decoder `.cpuAndNeuralEngine`.
   - Compute 모드는 디버그 메뉴의 런타임 설정으로 둠. CoreML은 로드 시점에 compute units가 정해지므로 전환하면 모델을 다시 로드함. Mac 없이 TestFlight를 거치면 빌드 한 번이 느리므로, 재빌드 없이 앱 안에서 바꿔 가며 비교.

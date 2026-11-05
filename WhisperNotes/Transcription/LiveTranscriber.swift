@@ -28,6 +28,8 @@ final class LiveTranscriber {
     var isBusy: Bool { isTranscribing || pendingCount > 0 }
 
     private let models: ModelManager
+    /// 모델과 계산 장치는 녹음을 시작할 때 정해 둔다 (녹음 중에 설정을 바꿔도 다음 녹음부터)
+    private let model: WhisperModel
     private let compute: ComputeMode
     private var pending: [SpeechChunk] = []
     private var current: Task<Void, Never>?
@@ -36,6 +38,7 @@ final class LiveTranscriber {
     init(session: SessionFiles, models: ModelManager) {
         self.session = session
         self.models = models
+        model = AppSettings.liveModel
         compute = AppSettings.liveComputeMode
         segments = session.load(Transcript.self, from: session.liveURL)?.segments ?? []
     }
@@ -46,13 +49,13 @@ final class LiveTranscriber {
             message = "준실시간 전사가 꺼져 있습니다 (설정)."
             return
         }
-        guard models.downloaded.contains(AppSettings.liveModel) else {
-            message = "\(AppSettings.liveModel.title) 모델을 받으면 녹음하면서 전사합니다."
+        guard models.downloaded.contains(model) else {
+            message = "\(model.title) 모델을 받으면 녹음하면서 전사합니다."
             return
         }
         Task(priority: .utility) {
             do {
-                _ = try await models.engine(AppSettings.liveModel, compute: compute)
+                _ = try await models.engine(model, compute: compute)
             } catch {
                 message = "모델을 불러오지 못했습니다: \(error.localizedDescription)"
             }
@@ -60,7 +63,7 @@ final class LiveTranscriber {
     }
 
     func enqueue(_ chunk: SpeechChunk) {
-        guard AppSettings.liveEnabled, models.downloaded.contains(AppSettings.liveModel) else { return }
+        guard AppSettings.liveEnabled, models.downloaded.contains(model) else { return }
         pending.append(chunk)
         trimPending(to: isPaused ? Self.maxBacklog : Self.maxQueued)
         processNext()
@@ -113,7 +116,7 @@ final class LiveTranscriber {
 
     private func transcribe(_ chunk: SpeechChunk) async {
         do {
-            let engine = try await models.engine(AppSettings.liveModel, compute: compute)
+            let engine = try await models.engine(model, compute: compute)
             if ProcessInfo.processInfo.thermalState.rawValue >= ProcessInfo.ThermalState.serious.rawValue {
                 log("live: hot (\(ProcessInfo.processInfo.thermalState.rawValue)), waiting")
                 try await Task.sleep(for: .seconds(5))
@@ -141,7 +144,7 @@ final class LiveTranscriber {
 
     private func save() {
         let transcript = Transcript(
-            model: AppSettings.liveModel.rawValue,
+            model: model.rawValue,
             computeMode: compute.rawValue,
             segments: segments,
             updatedAt: .now
